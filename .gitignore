@@ -6,3 +6,8 @@ __pycache__/
 .env
 .env.*
 !.env.example
+
+# Local job database
+backend/jobs.db
+backend/jobs.db-shm
+backend/jobs.db-wal
