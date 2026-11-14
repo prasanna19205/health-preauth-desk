@@ -1,0 +1,5 @@
+# Ignore generated indexes and data outputs when this module is added to a repo.
+chroma_db/
+data/processed/
+data/index_manifest.json
+data/eval_results.json
