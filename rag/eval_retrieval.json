@@ -24,5 +24,9 @@
   {"id": 23, "query": "free look period cancel policy", "section_type": "cover", "expected": ["policy:5.15"], "outcome": "free look rules"},
   {"id": 24, "query": "what is a named ailment waiting period", "section_type": "waiting_period", "expected": ["policy:2.1.48"], "outcome": "definition"},
   {"id": 25, "query": "optional benefit that changes the named ailment waiting period", "section_type": "waiting_period", "expected": ["policy:3.2.4"], "outcome": "waiting period can differ per Policy Schedule"},
-  {"id": 26, "query": "routine eye examination dentures hearing devices", "section_type": "exclusion", "expected": ["policy:4.2", "policy:4.2#2", "policy:4.2#3", "policy:4.2#4", "policy:4.2#5"], "outcome": "specific exclusion"}
+  {"id": 26, "query": "routine eye examination dentures hearing devices", "section_type": "exclusion", "expected": ["policy:4.2", "policy:4.2#2", "policy:4.2#3", "policy:4.2#4", "policy:4.2#5"], "outcome": "specific exclusion"},
+  {"id": 27, "query": "operation for pterygium of the eye", "section_type": "daycare_procedure", "expected": ["daycare:p1:item29"], "outcome": "on day-care list"},
+  {"id": 28, "query": "glaucoma filtering surgery", "section_type": "daycare_procedure", "expected": ["daycare:p1:item37"], "outcome": "on day-care list"},
+  {"id": 29, "query": "tympanoplasty to repair a perforated eardrum", "section_type": "daycare_procedure", "expected": ["daycare:p1:item4", "daycare:p1:item5"], "outcome": "on day-care list"},
+  {"id": 30, "query": "is cataract surgery on the day-care list", "section_type": "daycare_procedure", "expected": ["daycare:p1:item34"], "outcome": "on day-care list; the 24-month waiting period still applies (see case 1)"}
 ]

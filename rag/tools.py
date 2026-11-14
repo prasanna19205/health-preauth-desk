@@ -157,3 +157,79 @@ def list_documents():
         })
         row["chunks"] += 1
     return list(summary.values())
+
+
+# ---------------------------------------------------------------------------
+# Added tools for the agent (exact lookups + checks that do not rely on one
+# embedding search). Paste at the END of tools.py.
+# ---------------------------------------------------------------------------
+import re
+
+_STOP = {
+    "of", "the", "and", "for", "to", "on", "a", "an", "with", "in", "planned",
+    "surgery", "operation", "operations", "treatment", "procedure", "removal",
+}
+
+
+def _words(text):
+    return {w for w in re.findall(r"[a-z]+", text.lower()) if w not in _STOP and len(w) > 2}
+
+
+def _rows(where):
+    """Exact (non-semantic) fetch of every chunk matching a metadata filter."""
+    res = _collection().get(where=where, include=["metadatas", "documents"])
+    return _format({
+        "ids": [res.get("ids") or []],
+        "metadatas": [res.get("metadatas") or []],
+        "documents": [res.get("documents") or []],
+        "distances": [[0.0] * len(res.get("ids") or [])],
+    })
+
+
+def get_clause_parts(clause_id):
+    """Return ALL parts of a clause, e.g. 'policy:Excl02' -> Excl02, Excl02#2, ...
+    (long clauses are stored in several chunks). Empty list if not indexed."""
+    if not isinstance(clause_id, str) or not clause_id.strip():
+        raise ValueError("clause_id must be a non-empty string")
+    base = clause_id.strip().split("#")[0]
+    parts = [r for r in _rows({"doc_id": base.split(":")[0]})
+             if r["clause_id"].split("#")[0] == base]
+    def _part_no(r):
+        tail = r["clause_id"].split("#")
+        return int(tail[1]) if len(tail) > 1 and tail[1].isdigit() else 1
+    return sorted(parts, key=lambda r: (r["page"] or 0, _part_no(r)))
+
+
+def check_waiting_period(condition):
+    """Is this condition/procedure named in a waiting-period clause?
+    Reads every waiting_period chunk and looks for the condition's words, so it
+    finds provisions the request never mentions. Returns the matching clause
+    text; the agent must read it to get the period (the tool does not guess)."""
+    if not isinstance(condition, str) or not condition.strip():
+        raise ValueError("condition must be a non-empty string")
+    need = _words(condition)
+    matches = []
+    for r in _rows({"section_type": "waiting_period"}):
+        if need and need <= _words(r["text"]):
+            r["months_mentioned"] = sorted(set(re.findall(r"(\d+)\s*months", r["text"].lower())), key=int)
+            matches.append(r)
+    return {"condition": condition, "listed": bool(matches), "matches": matches}
+
+
+def check_daycare(procedure, k=3):
+    """Is this procedure on the day-care list?
+    status 'listed'    -> a list entry contains all the procedure's key words
+    status 'not_found' -> no such entry; nearest entries returned, NOT proof it
+                          is excluded (agent should escalate if unsure)."""
+    if not isinstance(procedure, str) or not procedure.strip():
+        raise ValueError("procedure must be a non-empty string")
+    need = _words(procedure)
+    rows = _rows({"doc_id": "daycare"})
+    hits = [r for r in rows if need and need <= _words(r["text"])]
+    return {
+        "procedure": procedure,
+        "status": "listed" if hits else "not_found",
+        "matches": hits[:k],
+        "nearest": [] if hits else search_daycare_list(procedure, k=k),
+        "source_note": "list of day-care procedures indexed as doc_id=daycare",
+    }
