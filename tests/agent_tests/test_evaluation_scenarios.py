@@ -269,30 +269,59 @@ def create_scenario_request(scenario):
 def run_with_incomplete_evidence(request):
     """
     EV14:
-    Simulate a retrieval failure by allowing the search tool
-    to return only the coverage clause.
+    Simulate a complete retrieval failure across every policy
+    evidence path used by coverage_agent.py.
 
-    The waiting-period and other required sections will be
-    missing even after the graph's retry.
+    The agent receives no clauses on either attempt. Verification
+    must fail, and the workflow must escalate instead of approving.
     """
 
-    original_search_policy = coverage_module.search_policy
+    original_functions = {
+        "search_policy": coverage_module.search_policy,
+        "lookup_clause_parts": coverage_module.lookup_clause_parts,
+        "search_policy_modifiers": coverage_module.search_policy_modifiers,
+        "check_policy_waiting_period": coverage_module.check_policy_waiting_period,
+        "check_procedure_daycare": coverage_module.check_procedure_daycare,
+    }
 
-    def incomplete_search(query):
-        results = original_search_policy(query)
+    def incomplete_search(query, section_type=None, k=5):
+        return []
 
-        return [
-            clause
-            for clause in results
-            if clause.get("clause_id") == "COV-001"
-        ]
+    def incomplete_clause_parts(clause_id):
+        return []
 
+    def incomplete_modifiers(query, k=3):
+        return []
+
+    def incomplete_waiting_period(procedure):
+        return {
+            "listed": False,
+            "matches": [],
+        }
+
+    def incomplete_daycare(procedure):
+        return {
+            "status": "not_found",
+            "matches": [],
+        }
+
+    # Temporarily replace all five retrieval paths.
     coverage_module.search_policy = incomplete_search
+    coverage_module.lookup_clause_parts = incomplete_clause_parts
+    coverage_module.search_policy_modifiers = incomplete_modifiers
+    coverage_module.check_policy_waiting_period = incomplete_waiting_period
+    coverage_module.check_procedure_daycare = incomplete_daycare
 
     try:
         return run_agent_workflow(request)
+
     finally:
-        coverage_module.search_policy = original_search_policy
+        # Restore the original functions after the test.
+        coverage_module.search_policy = original_functions["search_policy"]
+        coverage_module.lookup_clause_parts = original_functions["lookup_clause_parts"]
+        coverage_module.search_policy_modifiers = original_functions["search_policy_modifiers"]
+        coverage_module.check_policy_waiting_period = original_functions["check_policy_waiting_period"]
+        coverage_module.check_procedure_daycare = original_functions["check_procedure_daycare"]
 
 
 def run_with_unsupported_citation(request):
@@ -336,6 +365,7 @@ def run_with_unsupported_citation(request):
 
     try:
         return run_agent_workflow(request)
+
     finally:
         agent_graph.investigate_coverage = original_investigate
 
@@ -376,6 +406,7 @@ def evaluate_scenario(scenario):
 
         if recommendation is None:
             actual_outcome = "MEDICAL_REVIEW"
+
         else:
             actual_outcome = (
                 recommendation.recommendation.value

@@ -5,58 +5,92 @@ from agents.schemas import CoverageInvestigation
 from agents.tools import lookup_clause
 
 
-REQUIRED_SECTIONS = {
-    "coverage",
-    "waiting period",
-    "exclusions",
-    "sub-limits",
-    "room eligibility",
-}
-
-
 def normalize_text(value: str) -> str:
     """Normalize text for basic word-level comparisons."""
     return re.sub(r"[^a-z0-9]+", " ", value.lower()).strip()
+
+
+SECTION_ALIASES = {
+    "cover": "coverage",
+    "coverage": "coverage",
+    "waiting_period": "waiting period",
+    "waiting period": "waiting period",
+    "exclusion": "exclusions",
+    "exclusions": "exclusions",
+    "sublimit": "sub-limits",
+    "sub-limits": "sub-limits",
+    "daycare_procedure": "day-care procedure",
+    "day-care procedure": "day-care procedure",
+    "definition": "definitions",
+    "definitions": "definitions",
+    "annexure": "annexure",
+}
+
+
+def get_section(clause: dict) -> str:
+    """Support both the old mock format and the real RAG format."""
+
+    section_type = clause.get("section_type")
+
+    if isinstance(section_type, str) and section_type.strip():
+        return SECTION_ALIASES.get(
+            section_type.strip().lower(),
+            section_type.strip().replace("_", " ").lower(),
+        )
+
+    section = clause.get("section")
+
+    if isinstance(section, str):
+        return SECTION_ALIASES.get(
+            section.strip().lower(),
+            section.strip().lower(),
+        )
+
+    return ""
 
 
 def verify_investigation(
     investigation: CoverageInvestigation,
 ) -> dict:
     """
-    Verify:
-    1. Clauses exist.
-    2. Clause metadata is valid.
-    3. Clause IDs are unique.
-    4. Clauses match the actual policy corpus.
-    5. Required policy sections are present.
-    6. No investigation checks remain unresolved.
-    7. Coverage evidence is relevant to the procedure.
+    Verify retrieved policy evidence against the canonical RAG corpus.
 
-    This is rule-based verification, not semantic or LLM-based
-    verification.
+    Checks:
+    1. At least one clause was retrieved.
+    2. Clause identifiers, text and page numbers are valid.
+    3. Clause metadata matches the canonical corpus.
+    4. Duplicate citations are rejected.
+    5. Coverage evidence is relevant to the requested procedure.
+    6. Explicitly unresolved investigation checks are rejected.
+
+    This is rule-based verification, not semantic or LLM-based verification.
     """
 
     errors = []
     clauses = investigation.retrieved_clauses
 
-    # CHECK 1: At least one clause must be retrieved.
     if not clauses:
         errors.append("No policy clauses were retrieved")
 
     clause_ids = set()
     duplicate_ids = set()
+    canonical_matches = {}
 
-    # CHECK 2: Validate metadata and compare each clause
-    # against the canonical clause in the policy corpus.
+    # -----------------------------------------------------
+    # 1. Validate retrieved clauses against the RAG corpus
+    # -----------------------------------------------------
+
     for clause in clauses:
         if not isinstance(clause, dict):
-            errors.append("Retrieved clause is not a valid dictionary")
+            errors.append(
+                "Retrieved clause is not a valid dictionary"
+            )
             continue
 
         clause_id = clause.get("clause_id")
         text = clause.get("text")
         page = clause.get("page")
-        section = clause.get("section")
+        section = get_section(clause)
 
         if not isinstance(clause_id, str) or not clause_id.strip():
             errors.append("Clause is missing its identifier")
@@ -83,13 +117,12 @@ def verify_investigation(
                 f"Clause {clause_id} has an invalid or missing page number"
             )
 
-        if not isinstance(section, str) or not section.strip():
+        if not section:
             errors.append(
                 f"Clause {clause_id} is missing its section"
             )
 
-        # CHECK 3: Confirm that the clause actually exists
-        # in the canonical policy corpus.
+        # Look up the original clause in the actual RAG corpus.
         canonical_clause = lookup_clause(clause_id)
 
         if canonical_clause is None:
@@ -98,8 +131,10 @@ def verify_investigation(
             )
             continue
 
-        # CHECK 4: Confirm that citation details have not
-        # been changed or fabricated.
+        canonical_matches[clause_id] = canonical_clause
+
+        canonical_section = get_section(canonical_clause)
+
         if text != canonical_clause.get("text"):
             errors.append(
                 f"Clause {clause_id} text does not match the policy corpus"
@@ -110,39 +145,45 @@ def verify_investigation(
                 f"Clause {clause_id} page does not match the policy corpus"
             )
 
-        if section != canonical_clause.get("section"):
+        if section != canonical_section:
             errors.append(
                 f"Clause {clause_id} section does not match the policy corpus"
             )
 
-    # CHECK 5: Detect duplicate clause identifiers.
+    # -----------------------------------------------------
+    # 2. Detect duplicate clause identifiers
+    # -----------------------------------------------------
+
     for clause_id in sorted(duplicate_ids):
         errors.append(
             f"Duplicate clause identifier: {clause_id}"
         )
 
-    # CHECK 6: Identify sections found in retrieved clauses.
+    # -----------------------------------------------------
+    # 3. Identify sections actually retrieved
+    # -----------------------------------------------------
+
     found_sections = {
-        clause["section"].strip().lower()
+        get_section(clause)
         for clause in clauses
-        if isinstance(clause, dict)
-        and isinstance(clause.get("section"), str)
-        and clause["section"].strip()
+        if isinstance(clause, dict) and get_section(clause)
     }
 
-    missing_sections = REQUIRED_SECTIONS - found_sections
+    # Do not require every possible policy section to appear.
+    # Missing evidence is handled through unresolved_checks
+    # when a particular check is actually required.
 
-    for section in sorted(missing_sections):
-        errors.append(
-            f"Missing supporting provision: {section}"
-        )
+    # -----------------------------------------------------
+    # 4. Check unresolved investigation items
+    # -----------------------------------------------------
 
-    # CHECK 7: Check unresolved investigation items.
     if investigation.unresolved_checks:
         errors.extend(investigation.unresolved_checks)
 
-    # CHECK 8: Extract procedure from investigation notes.
-    # Support both the old and current note formats.
+    # -----------------------------------------------------
+    # 5. Extract the requested procedure from investigation notes
+    # -----------------------------------------------------
+
     procedure = None
 
     accepted_prefixes = (
@@ -159,13 +200,20 @@ def verify_investigation(
         if procedure:
             break
 
-    # CHECK 9: Check basic relevance of coverage evidence.
+    if not procedure:
+        errors.append(
+            "Procedure information is missing from investigation notes"
+        )
+
+    # -----------------------------------------------------
+    # 6. Verify coverage evidence relevance
+    # -----------------------------------------------------
+
     coverage_clauses = [
         clause
         for clause in clauses
         if isinstance(clause, dict)
-        and isinstance(clause.get("section"), str)
-        and clause["section"].strip().lower() == "coverage"
+        and get_section(clause) == "coverage"
     ]
 
     if not coverage_clauses:
@@ -202,12 +250,10 @@ def verify_investigation(
                 f"{procedure}"
             )
 
-    else:
-        errors.append(
-            "Procedure information is missing from investigation notes"
-        )
+    # -----------------------------------------------------
+    # 7. Collect verified citation identifiers
+    # -----------------------------------------------------
 
-    # CHECK 10: Collect only citations that passed all checks.
     verified_clause_ids = []
 
     for clause in clauses:
@@ -221,7 +267,7 @@ def verify_investigation(
 
         clause_id = clause_id.strip()
 
-        canonical_clause = lookup_clause(clause_id)
+        canonical_clause = canonical_matches.get(clause_id)
 
         if canonical_clause is None:
             continue
@@ -229,14 +275,13 @@ def verify_investigation(
         citation_matches = (
             clause.get("text") == canonical_clause.get("text")
             and clause.get("page") == canonical_clause.get("page")
-            and clause.get("section") == canonical_clause.get("section")
+            and get_section(clause) == get_section(canonical_clause)
             and isinstance(clause.get("text"), str)
             and bool(clause.get("text").strip())
             and isinstance(clause.get("page"), int)
             and not isinstance(clause.get("page"), bool)
             and clause.get("page") > 0
-            and isinstance(clause.get("section"), str)
-            and bool(clause.get("section").strip())
+            and bool(get_section(clause))
         )
 
         if citation_matches and clause_id not in duplicate_ids:

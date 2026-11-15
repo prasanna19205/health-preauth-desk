@@ -16,14 +16,7 @@ def normalize_text(value: str) -> str:
 
 
 def procedure_is_relevant(procedure: str, clause_text: str) -> bool:
-    """
-    Check whether a clause refers to the requested procedure.
-
-    Common words such as 'surgery' and 'procedure' are ignored.
-    All remaining meaningful procedure words must appear
-    in the clause to establish relevance.
-    """
-
+    """Check whether a clause specifically refers to the procedure."""
     stopwords = {
         "surgery",
         "procedure",
@@ -53,6 +46,23 @@ def procedure_is_relevant(procedure: str, clause_text: str) -> bool:
     return procedure_words.issubset(clause_words)
 
 
+def is_general_hospitalization_coverage(clause_text: str) -> bool:
+    """Recognise the policy's general hospitalization benefit."""
+    normalized = normalize_text(clause_text)
+
+    required_phrases = [
+        "hospitalization expenses",
+        "diagnosed with an illness",
+        "admitted in a hospital",
+        "medically necessary",
+    ]
+
+    return all(
+        phrase in normalized
+        for phrase in required_phrases
+    )
+
+
 def extract_waiting_months(clause_text: str):
     """
     Extract a waiting period expressed in months.
@@ -61,13 +71,17 @@ def extract_waiting_months(clause_text: str):
     - waiting period of 24 months
     - 24-month waiting period
     - waiting period: 24 months
-    - waiting period - 24 months
+    - excluded until the expiry of 24 months
+    - excluded until expiry of 24 months of continuous coverage
     """
 
     patterns = [
         r"waiting period of\s+(\d+)\s+months?",
         r"(\d+)\s*-\s*months?\s+waiting period",
         r"waiting period\s*[:\-]?\s*(\d+)\s+months?",
+        r"excluded until the expiry of\s+(\d+)\s+months?",
+        r"excluded until expiry of\s+(\d+)\s+months?",
+        r"until the expiry of\s+(\d+)\s+months?",
     ]
 
     for pattern in patterns:
@@ -81,6 +95,14 @@ def extract_waiting_months(clause_text: str):
             return int(match.group(1))
 
     return None
+
+
+def get_base_clause_id(clause_id: str):
+    """Remove a chunk suffix to identify related parts of a clause."""
+    if not isinstance(clause_id, str):
+        return None
+
+    return clause_id.split("#", 1)[0]
 
 
 def make_recommendation(
@@ -98,7 +120,6 @@ def make_recommendation(
 
     clauses = investigation.retrieved_clauses
 
-    # Use only clause IDs accepted by the verification agent.
     verified_ids = set(
         verification.get("verified_clause_ids", [])
     )
@@ -144,17 +165,25 @@ def make_recommendation(
     coverage_clauses = [
         clause
         for clause in clauses
-        if isinstance(clause.get("section"), str)
-        and clause["section"].strip().lower() == "coverage"
+        if isinstance(clause, dict)
+        and (
+            clause.get("section") == "Coverage"
+            or clause.get("section_type") == "cover"
+        )
     ]
 
     relevant_coverage_clauses = [
         clause
         for clause in coverage_clauses
         if isinstance(clause.get("text"), str)
-        and procedure_is_relevant(
-            request.procedure,
-            clause["text"],
+        and (
+            procedure_is_relevant(
+                request.procedure,
+                clause["text"],
+            )
+            or is_general_hospitalization_coverage(
+                clause["text"]
+            )
         )
     ]
 
@@ -175,8 +204,11 @@ def make_recommendation(
     exclusion_clauses = [
         clause
         for clause in clauses
-        if isinstance(clause.get("section"), str)
-        and clause["section"].strip().lower() == "exclusions"
+        if isinstance(clause, dict)
+        and (
+            clause.get("section") == "Exclusions"
+            or clause.get("section_type") == "exclusion"
+        )
     ]
 
     relevant_exclusions = []
@@ -203,7 +235,6 @@ def make_recommendation(
             relevant_exclusions.append(clause)
 
     # 6. Check for conflicting coverage and exclusion evidence.
-    # This check must happen before the exclusion-only decision.
     for coverage_clause in relevant_coverage_clauses:
         coverage_text = coverage_clause.get("text", "")
 
@@ -242,11 +273,9 @@ def make_recommendation(
                 requires_human_review=True,
             )
 
-    # 7. An applicable exclusion without conflicting coverage
-    # still requires medical officer review.
+    # 7. An applicable exclusion requires medical officer review.
     if relevant_exclusions:
         clause = relevant_exclusions[0]
-
         clause_id = clause.get("clause_id")
 
         return AgentResult(
@@ -267,44 +296,62 @@ def make_recommendation(
     waiting_clauses = [
         clause
         for clause in clauses
-        if isinstance(clause.get("section"), str)
-        and clause["section"].strip().lower() == "waiting period"
+        if isinstance(clause, dict)
+        and (
+            clause.get("section") == "Waiting Period"
+            or clause.get("section_type") == "waiting_period"
+        )
     ]
 
-    for clause in waiting_clauses:
-        clause_text = clause.get("text", "")
+    # The policy may split a waiting-period clause across chunks.
+    # Group chunks by their original clause ID before checking.
+    waiting_groups = {}
 
-        if not isinstance(clause_text, str):
+    for clause in waiting_clauses:
+        clause_id = clause.get("clause_id")
+        base_id = get_base_clause_id(clause_id)
+
+        if not base_id:
             continue
 
-        # Apply only a waiting period relevant to the procedure.
+        waiting_groups.setdefault(base_id, []).append(clause)
+
+    for base_id, group in waiting_groups.items():
+        combined_text = " ".join(
+            clause.get("text", "")
+            for clause in group
+            if isinstance(clause.get("text"), str)
+        )
+
+        # Check procedure relevance across all related chunks.
         if not procedure_is_relevant(
             request.procedure,
-            clause_text,
+            combined_text,
         ):
             continue
 
-        waiting_months = extract_waiting_months(clause_text)
+        # Extract duration from the combined policy wording.
+        waiting_months = extract_waiting_months(combined_text)
+
+        group_supporting_ids = [
+            clause.get("clause_id")
+            for clause in group
+            if clause.get("clause_id") in verified_ids
+        ]
 
         if waiting_months is None:
-            clause_id = clause.get("clause_id")
-
             return AgentResult(
                 recommendation=CoverageRecommendation.MEDICAL_REVIEW,
                 reason=(
                     "A potentially applicable waiting period was found, "
                     "but its duration could not be reliably extracted."
                 ),
-                supporting_clauses=(
-                    [clause_id] if clause_id in verified_ids else []
-                ),
+                supporting_clauses=group_supporting_ids,
                 missing_information=[],
                 requires_human_review=True,
             )
 
         if analysis.policy_age_months < waiting_months:
-            clause_id = clause.get("clause_id")
-
             return AgentResult(
                 recommendation=CoverageRecommendation.MEDICAL_REVIEW,
                 reason=(
@@ -313,9 +360,7 @@ def make_recommendation(
                     f"{waiting_months}-month waiting period "
                     "found in the retrieved clause."
                 ),
-                supporting_clauses=(
-                    [clause_id] if clause_id in verified_ids else []
-                ),
+                supporting_clauses=group_supporting_ids,
                 missing_information=[],
                 requires_human_review=True,
             )
