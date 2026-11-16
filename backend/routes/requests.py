@@ -1,19 +1,21 @@
-﻿from fastapi import APIRouter, HTTPException, status
+﻿
+from typing import Optional, Literal
+
+from fastapi import APIRouter, HTTPException, Query, status
 
 from agents.schemas import PreAuthRequest
 from backend.schemas import (
     JobSubmissionResponse,
     JobStatusResponse,
     JobResultResponse,
+    JobHistoryResponse,
 )
 from backend.services.job_manager import job_manager
-
 
 router = APIRouter(
     prefix="/requests",
     tags=["Pre-Authorisation Requests"],
 )
-
 
 @router.post(
     "",
@@ -31,6 +33,24 @@ async def submit_request(request: PreAuthRequest):
         message="Pre-authorisation request submitted successfully.",
     )
 
+@router.get(
+    "",
+    response_model=JobHistoryResponse,
+)
+async def list_requests(
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    request_status: Optional[
+        Literal["queued", "running", "completed", "failed"]
+    ] = Query(default=None, alias="status"),
+):
+    """Retrieve paginated request history with an optional status filter."""
+
+    return job_manager.list_jobs(
+        limit=limit,
+        offset=offset,
+        status=request_status,
+    )
 
 @router.get(
     "/{job_id}",
@@ -48,7 +68,6 @@ async def get_request_status(job_id: str):
         )
 
     return job
-
 
 @router.get(
     "/{job_id}/result",

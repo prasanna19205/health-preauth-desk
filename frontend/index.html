@@ -1,0 +1,254 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Health Pre-Authorisation Desk</title>
+    <link rel="stylesheet" href="/app/style.css">
+</head>
+<body>
+    <header class="topbar">
+        <div>
+            <h1>Health Pre-Authorisation Desk</h1>
+            <p>AI-powered insurance assessment dashboard</p>
+        </div>
+        <div class="health-indicator">
+            <span id="healthDot" class="dot"></span>
+            <span id="healthText">Checking API...</span>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="welcome">
+            <div>
+                <p class="eyebrow">PRE-AUTHORIZATION PORTAL</p>
+                <h2>Hospital Request Assessment</h2>
+                <p>Submit a request and track its assessment through the multi-agent AI workflow.</p>
+            </div>
+        </section>
+
+        <section class="dashboard-grid">
+            <div class="panel form-panel">
+                <div class="section-heading">
+                    <div>
+                        <h2>New Pre-Authorisation Request</h2>
+                        <p>Enter the patient's policy and admission details.</p>
+                    </div>
+                </div>
+
+                <form id="requestForm">
+                    <div class="form-grid">
+                        <label>
+                            Patient ID
+                            <input name="patient_id" required placeholder="e.g. PAT001">
+                        </label>
+
+                        <label>
+                            Policy ID
+                            <input name="policy_id" required placeholder="e.g. POLICY001">
+                        </label>
+
+                        <label>
+                            Policy Start Date
+                            <input name="policy_start_date" type="date" required>
+                        </label>
+
+                        <label>
+                            Admission Date
+                            <input name="admission_date" type="date" required>
+                        </label>
+
+                        <label class="full-width">
+                            Procedure
+                            <input name="procedure" required placeholder="e.g. Cataract surgery">
+                        </label>
+
+                        <label>
+                            Admission Type
+                            <select name="admission_type" required>
+                                <option value="planned_surgical">Planned surgical</option>
+                                <option value="day_care">Day care</option>
+                                <option value="emergency">Emergency</option>
+                                <option value="maternity">Maternity</option>
+                            </select>
+                        </label>
+
+                        <label>
+                            Room Category
+                            <input name="room_category" required placeholder="e.g. Single private room">
+                        </label>
+
+                        <label>
+                            Estimated Cost (₹)
+                            <input name="estimated_cost" type="number" min="1" step="0.01" required placeholder="85000">
+                        </label>
+
+                        <label>
+                            Pre-existing Condition
+                            <select name="pre_existing_condition" required>
+                                <option value="unknown">Unknown</option>
+                                <option value="yes">Yes</option>
+                                <option value="no">No</option>
+                            </select>
+                        </label>
+
+                        <label class="full-width">
+                            Diagnosis (Optional)
+                            <input name="diagnosis" placeholder="Enter diagnosis">
+                        </label>
+                    </div>
+                    <div class="form-actions">
+    <button type="button" id="sampleButton" class="secondary-button">
+        Load Sample Data
+    </button>
+
+    <button type="submit" id="submitButton" class="primary-button">
+        Submit for AI Assessment
+    </button>
+</div>
+
+                    <p id="formMessage" class="message" aria-live="polite"></p>
+                </form>
+            </div>
+
+            <div class="panel tracking-panel">
+                <div class="section-heading">
+                    <div>
+                        <h2>Request Tracking</h2>
+                        <p>Live status of the submitted assessment.</p>
+                    </div>
+                </div>
+
+                <div id="trackingEmpty" class="empty-state">
+                    <div class="empty-icon">⌕</div>
+                    <h3>No active request</h3>
+                    <p>Submit a request to see its processing status here.</p>
+                </div>
+
+                <div id="trackingDetails" class="hidden">
+                    <p class="muted">JOB IDENTIFIER</p>
+                    <p id="jobId" class="job-id"></p>
+
+                    <p class="muted">PROCESSING STATUS</p>
+                    <span id="jobStatus" class="status-pill">Queued</span>
+
+                    <div class="progress-track">
+                        <div id="progressBar" class="progress-bar"></div>
+                    </div>
+
+                    <p id="trackingMessage" class="tracking-message">Waiting for processing...</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="resultPanel" class="panel result-panel hidden">
+            <div class="section-heading">
+                <div>
+                    <h2>Assessment Result</h2>
+                    <p>Recommendation and evidence returned by the AI agents.</p>
+                </div>
+            </div>
+
+            <div class="result-summary">
+                <div>
+                    <p class="muted">RECOMMENDATION</p>
+                    <h3 id="recommendation">—</h3>
+                </div>
+                <div>
+                    <p class="muted">HUMAN REVIEW REQUIRED</p>
+                    <h3 id="humanReview">—</h3>
+                </div>
+            </div>
+
+            <div class="result-block">
+                <h3>Reason</h3>
+                <p id="resultReason"></p>
+            </div>
+
+            <div class="result-block">
+                <h3>Missing Information</h3>
+                <ul id="missingInformation"></ul>
+            </div>
+
+            <div class="result-block">
+                <h3>Supporting Clauses</h3>
+                <div id="supportingClauses"></div>
+            </div>
+
+            <details class="raw-details">
+                <summary>View complete assessment response</summary>
+                <pre id="rawResult"></pre>
+            </details>
+        </section>
+
+        <section class="panel monitoring-panel">
+            <div class="section-heading">
+                <div>
+                    <h2>AI Agent Monitoring</h2>
+                    <p>Execution metrics from the backend monitoring endpoint.</p>
+                </div>
+                <button id="refreshMetrics" class="secondary-button" type="button">Refresh</button>
+            </div>
+
+            <div id="metricsContainer" class="metrics-grid">
+                <p class="muted">Loading agent metrics...</p>
+            </div>
+            <p id="metricsUpdated" class="muted"></p>
+        </section>
+    </main>
+
+    <footer>
+        <p>Health Pre-Authorisation Desk · Multi-Agent AI Assessment System</p>
+    </footer>
+
+    <script src="/app/script.js"></script>
+</body>
+</html>
+
+
+.history-panel {
+    margin-top: 24px;
+}
+
+.history-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 16px 0;
+    flex-wrap: wrap;
+}
+
+.history-controls select {
+    min-width: 160px;
+    padding: 10px;
+    border: 1px solid #d5dce8;
+    border-radius: 8px;
+}
+
+#historyContainer {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 14px;
+}
+
+.history-card {
+    padding: 16px;
+    border: 1px solid #e1e7ef;
+    border-radius: 12px;
+    background: #fff;
+    overflow-wrap: anywhere;
+}
+
+.history-card h3 {
+    margin: 0 0 10px;
+}
+
+.history-card p {
+    margin: 7px 0;
+    font-size: 14px;
+}
+
+.history-card small {
+    color: #718096;
+}

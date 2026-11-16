@@ -1,28 +1,28 @@
 ﻿
 import logging
+from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from backend.logging_config import configure_logging
 from backend.routes.monitoring import router as monitoring_router
 from backend.routes.requests import router as requests_router
 
-
 configure_logging()
 logger = logging.getLogger(__name__)
 
+FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
 
 class HealthResponse(BaseModel):
     status: str
     service: str
 
-
 class RootResponse(BaseModel):
     message: str
     service: str
     version: str
-
 
 app = FastAPI(
     title="Health Pre-Authorisation Desk",
@@ -36,7 +36,6 @@ app = FastAPI(
 app.include_router(requests_router)
 app.include_router(monitoring_router)
 
-
 @app.get("/", response_model=RootResponse)
 async def root():
     logger.info("Root endpoint accessed")
@@ -47,7 +46,6 @@ async def root():
         "version": "1.0.0",
     }
 
-
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
     logger.info("Health check accessed")
@@ -56,3 +54,12 @@ async def health_check():
         "status": "ok",
         "service": "Health Pre-Authorisation Desk API",
     }
+
+if FRONTEND_DIR.exists():
+    app.mount(
+        "/app",
+        StaticFiles(directory=str(FRONTEND_DIR), html=True),
+        name="frontend",
+    )
+else:
+    logger.warning("Frontend directory not found: %s", FRONTEND_DIR)

@@ -1,0 +1,530 @@
+
+:root {
+    font-family: "Segoe UI", Arial, sans-serif;
+    color: #243047;
+    background: #f4f7fb;
+    font-synthesis: none;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+}
+
+.topbar {
+    background: #172b4d;
+    color: white;
+    padding: 22px max(5%, calc((100% - 1250px) / 2));
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+}
+
+.topbar h1 {
+    margin: 0;
+    font-size: 22px;
+}
+
+.topbar p {
+    margin: 6px 0 0;
+    color: #c6d3e6;
+    font-size: 13px;
+}
+
+.health-indicator {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+.dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #f2b84b;
+}
+
+.dot.online {
+    background: #40c995;
+}
+
+.dot.offline {
+    background: #ef7272;
+}
+
+.container {
+    width: min(1250px, 90%);
+    margin: 30px auto;
+}
+
+.welcome {
+    background: linear-gradient(120deg, #e4edff, #edf6ff);
+    border: 1px solid #dce7fa;
+    border-radius: 16px;
+    padding: 27px 30px;
+    margin-bottom: 22px;
+}
+
+.eyebrow, .muted {
+    color: #75839a;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+
+.welcome .eyebrow {
+    color: #4d6ea9;
+}
+
+.welcome h2 {
+    margin: 8px 0;
+    font-size: 25px;
+}
+
+.welcome p:last-child {
+    color: #63718a;
+    margin-bottom: 0;
+}
+
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: 1.45fr 0.85fr;
+    gap: 20px;
+    align-items: start;
+}
+
+.panel {
+    background: white;
+    border: 1px solid #e5eaf1;
+    border-radius: 15px;
+    padding: 24px;
+    box-shadow: 0 5px 18px rgba(32, 55, 90, 0.035);
+    margin-bottom: 20px;
+}
+
+.section-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 22px;
+}
+
+.section-heading h2 {
+    font-size: 18px;
+    margin: 0 0 6px;
+}
+
+.section-heading p {
+    color: #8490a2;
+    font-size: 13px;
+    margin: 0;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 17px;
+}
+
+label {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    color: #48566c;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+input, select {
+    width: 100%;
+    border: 1px solid #dce3ed;
+    border-radius: 8px;
+    padding: 11px 12px;
+    background: #fff;
+    color: #26344a;
+    font: inherit;
+    font-size: 13px;
+    min-height: 42px;
+}
+
+input:focus, select:focus {
+    outline: 2px solid #c7d8ff;
+    border-color: #6689d5;
+}
+
+.full-width {
+    grid-column: 1 / -1;
+}
+
+.primary-button, .secondary-button {
+    border: 0;
+    border-radius: 8px;
+    padding: 12px 17px;
+    font-weight: 650;
+    cursor: pointer;
+}
+
+.primary-button {
+    width: 100%;
+    margin-top: 22px;
+    background: #315fae;
+    color: white;
+}
+
+.primary-button:hover {
+    background: #254d91;
+}
+
+.primary-button:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+
+.secondary-button {
+    color: #315fae;
+    background: #edf3ff;
+}
+
+.message {
+    font-size: 13px;
+    color: #53637a;
+    min-height: 18px;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 35px 10px;
+    color: #7e8ba0;
+}
+
+.empty-state h3 {
+    color: #40516b;
+    font-size: 16px;
+}
+
+.empty-state p {
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.empty-icon {
+    font-size: 36px;
+    color: #9bb3dd;
+}
+
+.hidden {
+    display: none !important;
+}
+
+.job-id {
+    font-size: 12px;
+    overflow-wrap: anywhere;
+    color: #315fae;
+    background: #f2f6fd;
+    padding: 10px;
+    border-radius: 7px;
+}
+
+.status-pill {
+    display: inline-block;
+    background: #fff3d8;
+    color: #92630b;
+    padding: 7px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.status-pill.completed {
+    background: #e2f7ed;
+    color: #18734b;
+}
+
+.status-pill.failed {
+    background: #ffebeb;
+    color: #a63b3b;
+}
+
+.progress-track {
+    height: 7px;
+    background: #edf0f5;
+    border-radius: 10px;
+    margin-top: 22px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 100%;
+    width: 8%;
+    background: #4d79c6;
+    border-radius: 10px;
+    transition: width 0.4s ease;
+}
+
+.tracking-message {
+    font-size: 13px;
+    color: #66758b;
+    line-height: 1.6;
+}
+
+.result-panel {
+    border-top: 4px solid #6487c9;
+}
+
+.result-summary {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    background: #f5f8fd;
+    padding: 18px;
+    border-radius: 10px;
+}
+
+.result-summary h3 {
+    margin: 8px 0 0;
+    font-size: 17px;
+    overflow-wrap: anywhere;
+}
+
+.result-block {
+    margin-top: 22px;
+}
+
+.result-block h3 {
+    font-size: 14px;
+    margin-bottom: 9px;
+}
+
+.result-block p, .result-block li {
+    font-size: 13px;
+    line-height: 1.7;
+    color: #5e6d82;
+}
+
+.result-block ul {
+    padding-left: 20px;
+}
+
+.clause {
+    border: 1px solid #e5eaf1;
+    border-radius: 9px;
+    padding: 12px;
+    margin: 9px 0;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.clause strong {
+    color: #315fae;
+}
+
+.raw-details {
+    margin-top: 22px;
+    font-size: 13px;
+    color: #52627a;
+}
+
+.raw-details summary {
+    cursor: pointer;
+    font-weight: 650;
+}
+
+pre {
+    background: #f4f6fa;
+    border-radius: 8px;
+    padding: 14px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    max-height: 400px;
+    overflow: auto;
+    font-size: 11px;
+}
+
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 13px;
+}
+
+.metric-card {
+    border: 1px solid #e7ebf2;
+    border-radius: 10px;
+    padding: 15px;
+    background: #fbfcfe;
+}
+
+.metric-card h3 {
+    font-size: 13px;
+    margin: 0 0 12px;
+    overflow-wrap: anywhere;
+}
+
+.metric-values {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 5px;
+}
+
+.metric-values strong {
+    display: block;
+    font-size: 19px;
+    color: #315fae;
+}
+
+.metric-values span {
+    font-size: 10px;
+    color: #8792a4;
+}
+
+footer {
+    text-align: center;
+    padding: 20px;
+    color: #8a96a8;
+    font-size: 12px;
+}
+
+@media (max-width: 850px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .metrics-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 550px) {
+    .topbar {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .form-grid, .result-summary, .metrics-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .full-width {
+        grid-column: auto;
+    }
+
+    .panel {
+        padding: 17px;
+    }
+
+    .welcome {
+        padding: 21px;
+    }
+}
+
+/* Improved typography and readability */
+body {
+    font-size: 16px;
+    line-height: 1.6;
+}
+
+.topbar h1 {
+    font-size: 27px;
+}
+
+.topbar p {
+    font-size: 15px;
+}
+
+.welcome h2 {
+    font-size: 31px;
+}
+
+.welcome p:last-child {
+    font-size: 16px;
+}
+
+.panel {
+    padding: 30px;
+    border-radius: 18px;
+}
+
+.section-heading h2 {
+    font-size: 22px;
+}
+
+.section-heading p {
+    font-size: 15px;
+}
+
+label {
+    font-size: 15px;
+    gap: 9px;
+}
+
+input, select {
+    min-height: 49px;
+    font-size: 15px;
+    padding: 13px 14px;
+}
+
+.primary-button, .secondary-button {
+    min-height: 48px;
+    font-size: 15px;
+    padding: 13px 20px;
+}
+
+.form-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 22px;
+}
+
+.form-actions .primary-button {
+    flex: 1;
+    margin-top: 0;
+}
+
+.form-actions .secondary-button {
+    margin-top: 0;
+}
+
+.message, .tracking-message {
+    font-size: 15px;
+}
+
+.job-id {
+    font-size: 14px;
+}
+
+.result-block p, .result-block li {
+    font-size: 15px;
+}
+
+.metric-card h3 {
+    font-size: 15px;
+}
+
+.metric-values span {
+    font-size: 12px;
+}
+
+.metric-values strong {
+    font-size: 23px;
+}
+
+footer {
+    font-size: 14px;
+}
+
+@media (max-width: 550px) {
+    .form-actions {
+        flex-direction: column;
+    }
+
+    .form-actions .primary-button,
+    .form-actions .secondary-button {
+        width: 100%;
+    }
+}

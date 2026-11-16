@@ -15,15 +15,12 @@ from pydantic import BaseModel
 from agents.graph import run_agent_workflow
 from agents.schemas import PreAuthRequest
 
-
 logger = logging.getLogger(__name__)
 
 DATABASE_PATH = Path(__file__).resolve().parents[1] / "jobs.db"
 
-
 def current_time():
     return datetime.now(timezone.utc).isoformat()
-
 
 def make_json_safe(value):
     """Convert agent output into JSON-compatible data."""
@@ -44,7 +41,6 @@ def make_json_safe(value):
         return [make_json_safe(item) for item in value]
 
     return value
-
 
 class JobManager:
     """Manages asynchronous agent jobs and SQLite persistence."""
@@ -256,5 +252,86 @@ class JobManager:
         finally:
             connection.close()
 
+    def list_jobs(self, limit=20, offset=0, status=None):
+        """Return paginated job history with basic request details."""
+
+        connection = self._connect()
+
+        try:
+            where_clause = ""
+            parameters = []
+
+            if status:
+                where_clause = "WHERE status = ?"
+                parameters.append(status)
+
+            total = connection.execute(
+                f"SELECT COUNT(*) FROM jobs {where_clause}",
+                parameters,
+            ).fetchone()[0]
+
+            rows = connection.execute(
+                f"""
+                SELECT
+                    job_id,
+                    status,
+                    request_data,
+                    result_data,
+                    error,
+                    created_at,
+                    updated_at
+                FROM jobs
+                {where_clause}
+                ORDER BY created_at DESC
+                LIMIT ? OFFSET ?
+                """,
+                parameters + [limit, offset],
+            ).fetchall()
+
+            items = []
+
+            for row in rows:
+                request_data = json.loads(row["request_data"])
+
+                result_data = (
+                    json.loads(row["result_data"])
+                    if row["result_data"]
+                    else None
+                )
+
+                recommendation_data = (
+                    result_data.get("recommendation", {})
+                    if isinstance(result_data, dict)
+                    else {}
+                )
+
+                recommendation = (
+                    recommendation_data.get("recommendation")
+                    if isinstance(recommendation_data, dict)
+                    else None
+                )
+
+                items.append({
+                    "job_id": row["job_id"],
+                    "status": row["status"],
+                    "patient_id": request_data.get("patient_id"),
+                    "policy_id": request_data.get("policy_id"),
+                    "procedure": request_data.get("procedure"),
+                    "admission_date": request_data.get("admission_date"),
+                    "recommendation": recommendation,
+                    "created_at": row["created_at"],
+                    "updated_at": row["updated_at"],
+                    "error": row["error"],
+                })
+
+            return {
+                "items": items,
+                "total": total,
+                "limit": limit,
+                "offset": offset,
+            }
+
+        finally:
+            connection.close()
 
 job_manager = JobManager()
